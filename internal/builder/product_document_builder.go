@@ -51,7 +51,6 @@ func (b *ProductDocumentBuilder) Build(
 	)
 
 	group, groupCtx := errgroup.WithContext(ctx)
-
 	group.Go(func() error {
 
 		translations, err :=
@@ -70,12 +69,10 @@ func (b *ProductDocumentBuilder) Build(
 		}
 
 		productTranslations = translations
-
 		return nil
 	})
 
 	group.Go(func() error {
-
 		specs, err :=
 			b.repo.GetSpecifications(
 				groupCtx,
@@ -90,7 +87,6 @@ func (b *ProductDocumentBuilder) Build(
 		}
 
 		specifications = specs
-
 		return nil
 	})
 
@@ -105,14 +101,11 @@ func (b *ProductDocumentBuilder) Build(
 			len(specifications),
 		)
 
-	for _, specification :=
-		range specifications {
-
-		attributeIDs =
-			append(
-				attributeIDs,
-				specification.AttributeID,
-			)
+	for _, specification := range specifications {
+		attributeIDs = append(
+			attributeIDs,
+			specification.AttributeID,
+		)
 	}
 
 	attributeTranslations, err :=
@@ -134,11 +127,15 @@ func (b *ProductDocumentBuilder) Build(
 		UUID:       product.ID,
 		SKU:        product.SKU,
 		PartNumber: product.PartNumber,
+
 		Brand: models.BrandDocument{
 			Code:  product.Brand,
 			Label: map[string]string{},
 		},
+
 		Attributes: map[string]string{},
+		AttributeDetails:
+			map[string]models.AttributeValueDocument{},
 	}
 
 	productKey := buildEntityKey(
@@ -148,26 +145,23 @@ func (b *ProductDocumentBuilder) Build(
 
 	for _, locale := range locales {
 
-		document.ProductName =
-			append(
-				document.ProductName,
-				models.LocalizedField{
-					Locale: locale,
-					Data: getTranslation(
-						productTranslations[productKey],
-						locale,
-						"productname",
-					),
-				},
-			)
+		document.ProductName = append(
+			document.ProductName,
+			models.LocalizedField{
+				Locale: locale,
+				Data: getTranslation(
+					productTranslations[productKey],
+					locale,
+					"productname",
+				),
+			},
+		)
 	}
 
-	for _, specification :=
-		range specifications {
+	for _, specification := range specifications {
 
-		document.Attributes[
-			specification.AttributeCode,
-		] = specification.Value
+		document.Attributes[specification.AttributeCode] =
+			specification.Value
 
 		attributeKey := buildEntityKey(
 			"attribute",
@@ -180,32 +174,14 @@ func (b *ProductDocumentBuilder) Build(
 			"label",
 		)
 
-		buildAttributeDocument(
-			document,
-			specification,
-			labels,
-		)
+		document.AttributeDetails[specification.AttributeCode] =
+			models.AttributeValueDocument{
+				Code: specification.Value,
+				Label: labels,
+			}
 	}
 
 	return document, nil
-}
-
-func buildAttributeDocument(
-	document *models.ProductDocument,
-	specification models.ProductSpecification,
-	labels map[string]string,
-) {
-
-	switch specification.AttributeCode {
-
-	case "oil_grade":
-
-		document.OilGrade =
-			map[string]interface{}{
-				"code": specification.Value,
-				"label": labels,
-			}
-	}
 }
 
 func buildLocaleLabels(
@@ -215,15 +191,12 @@ func buildLocaleLabels(
 ) map[string]string {
 
 	labels := map[string]string{}
-
 	for _, locale := range locales {
-
-		labels[locale] =
-			getTranslation(
-				translations,
-				locale,
-				fieldName,
-			)
+		labels[locale] = getTranslation(
+			translations,
+			locale,
+			fieldName,
+		)
 	}
 
 	return labels
@@ -261,4 +234,3 @@ func getTranslation(
 
 	return ""
 }
-

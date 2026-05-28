@@ -7,4 +7,3 @@ type ProductSpecification struct {
 	AttributeCode string
 	Value         string
 }
-

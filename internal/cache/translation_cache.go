@@ -8,30 +8,16 @@ import (
 	"github.com/MohdAdamSiThuThetNaing/automotive-aftermarket/internal/models"
 )
 
-type Cache interface {
-	Get(key string) ([]models.Translation, bool)
-	Set(key string, data []models.Translation)
-	Invalidate(key string)
-	Close()
-}
-
 type cacheItem struct {
 	Data      []models.Translation
 	ExpiresAt time.Time
 }
 
 type TranslationCache struct {
-	mu sync.RWMutex
-
-	items map[string]cacheItem
-
-	ttl time.Duration
-
-	cleanupTicker *time.Ticker
-	stopCleanup   chan struct{}
-
-	hits   uint64
-	misses uint64
+	mu       sync.RWMutex
+	items    map[string]cacheItem
+	ttl      time.Duration
+	interval time.Duration
 }
 
 func NewTranslationCache(
@@ -39,14 +25,12 @@ func NewTranslationCache(
 ) *TranslationCache {
 
 	cache := &TranslationCache{
-		items:         make(map[string]cacheItem),
-		ttl:           ttl,
-		cleanupTicker: time.NewTicker(ttl),
-		stopCleanup:   make(chan struct{}),
+		items:    make(map[string]cacheItem),
+		ttl:      ttl,
+		interval: ttl,
 	}
 
-	go cache.startCleanupLoop()
-
+	go cache.startCleanup()
 	return cache
 }
 
@@ -59,21 +43,28 @@ func (c *TranslationCache) Get(
 	c.mu.RUnlock()
 
 	if !exists {
-		c.recordMiss()
-		return nil, false
-	}
-
-	if c.isExpired(item) {
-
-		c.mu.Lock()
-		delete(c.items, key)
-		c.mu.Unlock()
-		c.recordMiss()
+		log.Printf(
+			"translation cache miss key=%s",
+			key,
+		)
 
 		return nil, false
 	}
 
-	c.recordHit()
+	if time.Now().After(item.ExpiresAt) {
+		c.Invalidate(key)
+		log.Printf(
+			"translation cache expired key=%s",
+			key,
+		)
+
+		return nil, false
+	}
+
+	log.Printf(
+		"translation cache hit key=%s",
+		key,
+	)
 
 	return item.Data, true
 }
@@ -84,7 +75,6 @@ func (c *TranslationCache) Set(
 ) {
 
 	c.mu.Lock()
-
 	c.items[key] = cacheItem{
 		Data:      data,
 		ExpiresAt: time.Now().Add(c.ttl),
@@ -102,62 +92,22 @@ func (c *TranslationCache) Invalidate(
 	c.mu.Unlock()
 }
 
-func (c *TranslationCache) Close() {
-	close(c.stopCleanup)
-	c.cleanupTicker.Stop()
-}
+func (c *TranslationCache) startCleanup() {
 
-func (c *TranslationCache) startCleanupLoop() {
+	ticker := time.NewTicker(c.interval)
+	defer ticker.Stop()
 
-	for {
+	for range ticker.C {
 
-		select {
+		now := time.Now()
+		c.mu.Lock()
+		for key, item := range c.items {
 
-		case <-c.cleanupTicker.C:
-			c.cleanupExpired()
-
-		case <-c.stopCleanup:
-			return
+			if now.After(item.ExpiresAt) {
+				delete(c.items, key)
+			}
 		}
+
+		c.mu.Unlock()
 	}
 }
-
-func (c *TranslationCache) cleanupExpired() {
-
-	now := time.Now()
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	for key, item := range c.items {
-
-		if now.After(item.ExpiresAt) {
-			delete(c.items, key)
-		}
-	}
-
-	log.Printf(
-		"cache cleanup completed items=%d hits=%d misses=%d",
-		len(c.items),
-		c.hits,
-		c.misses,
-	)
-}
-
-func (c *TranslationCache) isExpired(
-	item cacheItem,
-) bool {
-
-	return time.Now().After(
-		item.ExpiresAt,
-	)
-}
-
-func (c *TranslationCache) recordHit() {
-	c.hits++
-}
-
-func (c *TranslationCache) recordMiss() {
-	c.misses++
-}
-
