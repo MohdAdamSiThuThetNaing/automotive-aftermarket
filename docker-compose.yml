@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: wyzauto_postgres
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: wyzauto
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/1-init.sql:/docker-entrypoint-initdb.d/1-init.sql
+      - ./migrations/2-seed.sql:/docker-entrypoint-initdb.d/2-seed.sql
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: wyzauto_app
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    env_file:
+      - .env
+
+    command: ["./main"]
+
+volumes:
+  postgres_data:
