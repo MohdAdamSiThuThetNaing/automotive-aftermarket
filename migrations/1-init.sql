@@ -36,3 +36,6 @@ ON translation(entity_type, entity_id, locale);
 
 CREATE UNIQUE INDEX idx_translation_unique
 ON translation(entity_type, entity_id, locale, field_name);
+
+CREATE INDEX idx_translation_updated_at
+ON translation(updated_at);
