@@ -44,36 +44,35 @@ Core translation loading logic depends only on `pgx`.
 ├── Makefile
 ├── README.md
 ├── cmd
-│   └── app
-│       └── main.go
+│   └── app
+│       └── main.go
 ├── docker-compose.yml
 ├── go.mod
 ├── go.sum
 ├── internal
-│   ├── builder
-│   │   └── product_document_builder.go
-│   ├── cache
-│   │   └── translation_cache.go
-│   ├── config
-│   │   └── config.go
-│   ├── loader
-│   │   ├── postgres_loader.go
-│   │   └── translation_loader.go
-│   ├── mocks
-│   │   ├── mock_product_repository.go
-│   │   └── mock_translation_loader.go
-│   ├── models
-│   │   ├── elasticsearch_document.go
-│   │   ├── interface.go
-│   │   ├── product.go
-│   │   ├── specification.go
-│   │   └── translation.go
-│   └── repository
-│       ├── postgres_product_repository.go
-│       └── product_repository.go
+│   ├── builder
+│   │   └── product_document_builder.go
+│   ├── cache
+│   │   └── translation_cache.go
+│   ├── config
+│   │   └── config.go
+│   ├── loader
+│   │   ├── postgres_loader.go
+│   │   └── translation_loader.go
+│   ├── mocks
+│   │   ├── mock_product_repository.go
+│   │   └── mock_translation_loader.go
+│   ├── models
+│   │   ├── elasticsearch_document.go
+│   │   ├── product.go
+│   │   ├── specification.go
+│   │   └── translation.go
+│   └── repository
+│       ├── postgres_product_repository.go
+│       └── product_repository.go
 ├── migrations
-│   ├── 1-init.sql
-│   └── 2-seed.sql
+│   ├── 1-init.sql
+│   └── 2-seed.sql
 └── tests
     ├── integration_test.go
     └── product_document_builder_test.go
