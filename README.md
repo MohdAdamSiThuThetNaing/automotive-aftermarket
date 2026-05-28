@@ -167,7 +167,7 @@ Example:
 ## 1. Clone Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/MohdAdamSiThuThetNaing/automotive-aftermarket.git
 cd automotive-aftermarket
 ```
 
@@ -193,7 +193,7 @@ This automatically:
 Example `.env`:
 
 ```env
-DATABASE_URL=postgres://postgres:postgres@postgres:5432/wyzauto?sslmode=disable
+DATABASE_URL=
 
 PRODUCT_ID=11111111-1111-1111-1111-111111111111
 
