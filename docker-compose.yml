@@ -3,6 +3,8 @@ services:
     image: postgres:16
     container_name: wyzauto_postgres
 
+    restart: unless-stopped
+
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -17,13 +19,16 @@ services:
       - ./migrations/2-seed.sql:/docker-entrypoint-initdb.d/2-seed.sql
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d wyzauto"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+
     container_name: wyzauto_app
 
     depends_on:
