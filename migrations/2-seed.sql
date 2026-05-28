@@ -1,4 +1,50 @@
 
+-- PRODUCT
+INSERT INTO product (
+    id,
+    sku,
+    part_number,
+    brand,
+    category_id
+)
+VALUES (
+    '11111111-1111-1111-1111-111111111111',
+    'BP-OIL-5W30-1L',
+    '5W30-1L',
+    'bosch',
+    NULL
+);
+
+-- PRODUCT TRANSLATIONS
+INSERT INTO translation (
+    id,
+    entity_type,
+    entity_id,
+    locale,
+    field_name,
+    field_value,
+    updated_at
+)
+VALUES
+(
+    uuid_generate_v4(),
+    'product',
+    '11111111-1111-1111-1111-111111111111',
+    'en',
+    'productname',
+    '5W-30 Engine Oil 1L',
+    NOW()
+),
+(
+    uuid_generate_v4(),
+    'product',
+    '11111111-1111-1111-1111-111111111111',
+    'th',
+    'productname',
+    'น้ำมันเครื่อง 5W-30 1 ลิตร',
+    NOW()
+);
+
 -- ATTRIBUTE
 INSERT INTO attribute (
     id,
