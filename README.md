@@ -33,8 +33,9 @@ This project implements a production-oriented translation loading layer in Go fo
 Additional dependency:
 
 - `github.com/joho/godotenv`
+- `golang.org/x/sync/errgroup`
 
-Used only for local environment variable loading during development.
+Used only for local environment variable loading and lightweight concurrency orchestration.
 
 Core translation loading logic depends only on `pgx`.
 
@@ -42,7 +43,7 @@ Core translation loading logic depends only on `pgx`.
 
 # Project Structure
 
-```txt
+```txt id="tnw5ux"
 .
 ├── Dockerfile
 ├── Makefile
@@ -101,13 +102,94 @@ This separation keeps the translation loader testable while isolating persistenc
 
 ---
 
+# Design Decisions
+
+Several design decisions were intentionally made to align with the exercise requirements while keeping the implementation maintainable and operationally simple.
+
+---
+
+## Why Interfaces?
+
+The repository and translation loader are abstracted behind interfaces to:
+
+- isolate persistence concerns
+- improve testability
+- support mock-based unit testing
+- allow future backend replacement with minimal business-logic changes
+
+---
+
+## Why Bulk Translation Loading?
+
+The primary performance concern described in the exercise was N+1 translation queries.
+
+The loader therefore batches translation retrieval using:
+
+```sql id="scv3dj"
+WHERE entity_id = ANY($2)
+```
+
+This minimizes database round-trips and scales significantly better during Elasticsearch indexing operations.
+
+---
+
+## Why In-Process Cache Instead of Redis?
+
+The exercise explicitly requested:
+
+- thread-safe in-process cache
+- TTL support
+- entity-level invalidation
+
+An in-memory cache provides:
+
+- low latency
+- operational simplicity
+- zero external infrastructure requirements
+
+Redis would be more appropriate for:
+
+- distributed workers
+- multi-instance synchronization
+- shared cache consistency
+
+but would add operational complexity outside the scope of this exercise.
+
+---
+
+## Why Graceful Translation Fallback?
+
+Search indexing pipelines should remain resilient even when translation coverage is incomplete.
+
+The implementation therefore prioritizes:
+
+- successful document generation
+- graceful degradation
+- operational continuity
+
+instead of strict translation completeness.
+
+---
+
+## Why errgroup?
+
+`errgroup` allows independent I/O operations to execute concurrently while maintaining:
+
+- clean cancellation handling
+- structured error propagation
+- simpler concurrency management
+
+This improves overall document assembly latency without introducing unnecessary complexity.
+
+---
+
 # Translation Loading Strategy
 
 The translation loader avoids N+1 queries by bulk-loading translations using a single database round-trip.
 
 Example query:
 
-```sql
+```sql id="06q4bd"
 SELECT
     entity_type,
     entity_id,
@@ -136,7 +218,7 @@ The builder layer assembles a denormalized Elasticsearch-ready document from:
 
 Example output:
 
-```json
+```json id="3xhnx6"
 {
   "uuid": "11111111-1111-1111-1111-111111111111",
   "sku": "BP-OIL-5W30-1L",
@@ -186,13 +268,13 @@ Features:
 
 Example cache key:
 
-```txt
+```txt id="o2uv2u"
 product:11111111-1111-1111-1111-111111111111
 ```
 
 Entity-level invalidation:
 
-```go
+```go id="8nk7hu"
 Invalidate(entityType, entityID)
 ```
 
@@ -214,6 +296,51 @@ The design prioritizes:
 
 ---
 
+# Concurrent Document Loading
+
+`ProductDocumentBuilder` uses `errgroup` to parallelize independent I/O operations:
+
+- translation loading
+- specification loading
+
+This reduces total document assembly latency while keeping error propagation clean and structured.
+
+---
+
+# Attribute Document Strategy
+
+The implementation currently supports structured attribute rendering for:
+
+- `oil_grade`
+
+using:
+
+```json id="2qfqot"
+{
+  "oil_grade": {
+    "code": "5w30",
+    "label": {
+      "en": "5W-30",
+      "th": "5W-30"
+    }
+  }
+}
+```
+
+Assumption:
+
+The exercise document only provided one explicit example of structured specification rendering (`oil_grade`).
+
+In a production system, this would likely evolve into:
+
+- schema-driven attribute rendering
+- configuration-based attribute mapping
+- dynamic attribute serializers
+
+instead of hardcoded switch logic.
+
+---
+
 # Graceful Fallback Strategy
 
 Missing translations never return an error or panic.
@@ -231,11 +358,32 @@ Example:
 
 ---
 
+# Error Handling Strategy
+
+Errors are wrapped with contextual information:
+
+```go id="4zjlwm"
+return nil, fmt.Errorf(
+    "load product translations: %w",
+    err,
+)
+```
+
+This improves:
+
+- observability
+- debugging
+- operational diagnostics
+
+while preserving original error chains.
+
+---
+
 # Environment Variables
 
 Example `.env`:
 
-```env
+```env id="ry9e9p"
 DATABASE_URL=
 
 PRODUCT_ID=11111111-1111-1111-1111-111111111111
@@ -252,7 +400,7 @@ CACHE_TTL_MINUTES=5
 
 Schema and seed data are automatically initialized using Docker entrypoint scripts:
 
-```txt
+```txt id="0e8d77"
 migrations/1-init.sql
 migrations/2-seed.sql
 ```
@@ -263,13 +411,13 @@ migrations/2-seed.sql
 
 ## Start PostgreSQL + Application
 
-```bash
+```bash id="4eyg1l"
 make up
 ```
 
 OR:
 
-```bash
+```bash id="c4ny2m"
 docker compose up --build
 ```
 
@@ -286,13 +434,13 @@ This automatically:
 
 ## Run All Tests
 
-```bash
+```bash id="8pf7y9"
 make test
 ```
 
 OR:
 
-```bash
+```bash id="4kr5rq"
 go test ./... -v
 ```
 
@@ -325,25 +473,25 @@ Integration test:
 
 # Makefile Commands
 
-```bash
+```bash id="kl6gln"
 make up
 ```
 
 Start Docker services.
 
-```bash
+```bash id="43ck0f"
 make down
 ```
 
 Stop Docker services.
 
-```bash
+```bash id="f1y70g"
 make run
 ```
 
 Run application locally.
 
-```bash
+```bash id="m1f8nq"
 make test
 ```
 
@@ -357,7 +505,7 @@ To support delta sync, I would extend the loader using an `updated_at` cursor st
 
 Example query:
 
-```sql
+```sql id="y00ls3"
 SELECT
     entity_type,
     entity_id,
@@ -399,6 +547,20 @@ Given more time, I would add:
 - CDC / Debezium integration
 - Benchmark tests
 - OpenTelemetry support
+
+---
+
+# Assumptions
+
+This implementation makes several assumptions:
+
+- Elasticsearch indexing is eventually consistent
+- cache is scoped to a single application instance
+- translation volume is manageable within batch-loading strategy
+- one product document is assembled per request
+- attribute rendering requirements are limited to provided examples
+
+These assumptions keep the implementation intentionally focused and aligned with the exercise scope.
 
 ---
 
